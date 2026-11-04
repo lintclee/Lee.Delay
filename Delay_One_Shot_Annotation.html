@@ -1,0 +1,105 @@
+<!doctype html>
+
+<head>
+<meta charset="utf-8">
+<title>ADSR Delay Voice</title>
+<style>body{background:#fff;color:#000}</style>
+
+  </head>
+    <body>
+
+<button id="trig" type="button">Play note</button>
+
+<p>
+Delay time <input id="time" type="range" min="10" max="2000" value="350"><br>
+Feedback <input id="fb" type="range" min="0" max="95" value="50">
+</p>
+
+<script>
+// The AudioContext is the "audio engine" for the page. Every sound-making
+// or sound-changing object (a "node") belongs to a context, and the context
+// keeps its own clock (ctx.currentTime, in seconds) for scheduling events.
+const ctx = new AudioContext();
+
+// A GainNode is a volume control. This one is the master volume, set to
+// half (0.5) so the feedback buildup doesn't get too loud.
+const master = new GainNode(ctx, { gain: 0.5 });
+
+// A DelayNode outputs whatever goes into it, but later. delayTime is how
+// much later (0.35 seconds). maxDelayTime is the longest delay we'll ever
+// ask for; the slider below goes up to 2 seconds, so 2.5 leaves headroom.
+const delay = new DelayNode(ctx, { maxDelayTime: 2.5, delayTime: 0.35 });
+
+// Another volume control, used to turn down each echo before it goes
+// back into the delay. 0.5 means each echo is half as loud as the last.
+const feedback = new GainNode(ctx, { gain: 0.5 });
+
+// Wiring. connect() sends one node's output into another node's input.
+// delay -> feedback -> delay makes a loop: the delayed sound gets quieter
+// and is fed back in to be delayed again, which produces repeating echoes.
+// Keep feedback below 1, or the echoes never die away and keep getting louder.
+delay.connect(feedback);
+feedback.connect(delay);
+
+// The echoes also go to the master volume, and the master goes to
+// ctx.destination, which is the speakers.
+delay.connect(master);
+master.connect(ctx.destination);
+
+// Everything above is built once. The code below runs on every click
+// and builds a brand new note each time.
+document.getElementById('trig').addEventListener('click', function () {
+  // Browsers keep audio paused until the user interacts with the page.
+  // Calling resume() inside a click handler unlocks it.
+  ctx.resume();
+
+  // "Now" on the audio clock. All the timings below are offsets from this.
+  const t = ctx.currentTime;
+
+  // An OscillatorNode generates a steady tone. 'triangle' is the waveform
+  // (a soft, slightly hollow sound) and 440 Hz is the pitch (the A above
+  // middle C). Oscillators are one-use: once stopped they can't restart,
+  // which is why we make a new one on every click.
+  const osc = new OscillatorNode(ctx, { type: 'triangle', frequency: 440 });
+
+  // A volume control just for this note. It starts silent (gain 0), and we
+  // shape its volume over time to make an envelope.
+  const env = new GainNode(ctx, { gain: 0 });
+
+  // The envelope. env.gain is an AudioParam, a value we can schedule to
+  // change at exact times on the audio clock instead of setting it by hand.
+  // setValueAtTime jumps to a value; linearRampToValueAtTime glides from
+  // the previous value to a new one, arriving at the given time.
+  env.gain.setValueAtTime(0, t);                     // start silent
+  env.gain.linearRampToValueAtTime(1, t + 0.01);     // Attack: up to full volume in 10 ms
+  env.gain.linearRampToValueAtTime(0.4, t + 0.2);    // Decay: settle down to 40% by 200 ms
+  env.gain.setValueAtTime(0.4, t + 0.5);             // Sustain: hold 40% until 500 ms
+  env.gain.linearRampToValueAtTime(0, t + 0.9);      // Release: fade to silence by 900 ms
+
+  // Wire the note: oscillator -> envelope, then the envelope goes two places.
+  osc.connect(env);
+  env.connect(master);  // straight to the speakers (the "dry" sound)
+  env.connect(delay);   // into the delay loop (the echoes, or "wet" sound)
+
+  // Start the tone now, and stop it just after the release has finished.
+  // A stopped node with nothing referring to it is cleaned up by the browser.
+  osc.start(t);
+  osc.stop(t + 1);
+});
+
+// Delay time slider. Its value is in milliseconds, so divide by 1000 for
+// seconds. setTargetAtTime glides toward the new value instead of jumping,
+// which avoids clicks. The 0.05 sets how fast it glides (smaller is faster).
+document.getElementById('time').addEventListener('input', function (e) {
+  delay.delayTime.setTargetAtTime(e.target.value / 1000, ctx.currentTime, 0.05);
+});
+
+// Feedback slider. Its value runs 0 to 95, so divide by 100 for a gain
+// between 0 and 0.95. The cap at 0.95 keeps the echo loop from running away.
+document.getElementById('fb').addEventListener('input', function (e) {
+  feedback.gain.setTargetAtTime(e.target.value / 100, ctx.currentTime, 0.02);
+});
+</script>
+
+</body>
+</html>
