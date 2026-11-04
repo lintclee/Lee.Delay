@@ -1,0 +1,59 @@
+<!doctype html>
+<head>
+    <meta charset="UTF-8">
+    <title>ADSR Delay</title>
+    <style>body{background:fff;color:#000}</style>
+</head>
+<body>
+<button id = "trig" type="button">Play note</button>
+<p>
+Delay time<input id="time" type="range" min="10" max="2000" value="350"><br>
+Feedback <input id="fb" type="range" min="0" max="95" value="50">
+</p>
+<script>
+const ctx = new AudioContext();
+const master = new GainNode(ctx);
+master.gain = 0.5;
+
+const delay = new DelayNode(ctx);
+delay.delayTime = 0.35;
+
+const feedback = new GainNode(ctx, {gain: 0.5});
+
+delay.connect(feedback);
+feedback.connect(delay);
+delay.connect(master);
+master.connect(ctx.destination);
+document.getElementById('trig').addEventListener('click', function () {
+ctx.resume();
+const t = ctx.currentTime;
+
+const osc = new OscillatorNode(ctx, {type: 'triangle', frequency: 440});
+
+const env = new GainNode(ctx, {gain:0});
+
+env.gain.setValueAtTime(0, t);
+env.gain.exponentialRamptoValueAtTime(1, t+0.005);
+env.gain.exponentialRamptoValueAtTime(0.2, t+0.2);
+env.gain.setValueAtTime(0.2, t+0.5);
+env.gain.linearRamptoValueAtTime(0, t+0.9);
+
+osc.connect(env);
+env.connect(master);
+env.connect(delay);
+
+osc.start(t);
+osc.stop(t+1);
+
+document.getElementById('time').addEventListener('input', function(e){
+    delay.delayTime.setTargetAtTime(e.target.value / 1000, ctx.currentTime, 0.05);
+});
+
+document.getElementById('fb').addEventListener('input', function (e) {
+    feedback.gain.setTargetAtTime(e.target.value / 100, ctx.currentTime, 0.02);
+})
+
+})
+</script>
+</body>
+</html>
