@@ -20,23 +20,29 @@ delay.delayTime = 0.35;
 
 const feedback = new GainNode(ctx, {gain: 0.5});
 
+const filter = new BiquadFilterNode(ctx);
+filter.type = "highpass";
+filter.frequency = 600;
+filter.Q = 10;
+
 delay.connect(feedback);
 feedback.connect(delay);
-delay.connect(master);
+delay.connect(filter);
+filter.connect(master)
 master.connect(ctx.destination);
 document.getElementById('trig').addEventListener('click', function () {
 ctx.resume();
 const t = ctx.currentTime;
 
-const osc = new OscillatorNode(ctx, {type: 'triangle', frequency: 440});
+const osc = new OscillatorNode(ctx, {type: 'sawtooth', frequency: 110});
 
 const env = new GainNode(ctx, {gain:0});
 
 env.gain.setValueAtTime(0, t);
-env.gain.exponentialRamptoValueAtTime(1, t+0.005);
-env.gain.exponentialRamptoValueAtTime(0.2, t+0.2);
+env.gain.linearRampToValueAtTime(1, t+0.005);
+env.gain.linearRampToValueAtTime(0.2, t+0.2);
 env.gain.setValueAtTime(0.2, t+0.5);
-env.gain.linearRamptoValueAtTime(0, t+0.9);
+env.gain.linearRampToValueAtTime(0, t+0.9);
 
 osc.connect(env);
 env.connect(master);
