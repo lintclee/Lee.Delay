@@ -8,15 +8,18 @@
   </head>
     <body>
 
-<button id="trig" type="button">Play note</button>
+<button id="trig" type="button">Synth1</button>
+<button id="trig2" type="button">Synth2</button>
 
 <p>
-Delay time <input id="Time" type="range" step="1" min="15" max="100" value="15">
+Delay time(1) <input id="Time" type="range" step="0.01" min="0.01" max="0.75" value="15">
 <br>
-Feedback <input id="fb" type="range" min="55" max="90" value="0.5">
+Feedback(1) <input id="fb" type="range" min="55" max="89" value="0.5">
 <br>
-Modulator <input id="mod" type="range" min="0" max="95" value="50">
+Mod Speed(1) <input id="mod" type="range" step="0.1" min="0.5" max="11" value="2">
 </p>
+FM(2) <input id="fm" type="range" step="1" min="1" max="16" value="2">
+FM Depth(2) <input id="fmDepth" type="range" step="1" min="1" max="20" value="4">
 
 
 <script>
@@ -52,7 +55,6 @@ master.connect(ctx.destination);
 function playNote(frequency, filterCutOff) 
 
 {
-
   ctx.resume();
 
   // "Now" on the audio clock. All the timings below are offsets from this.
@@ -60,30 +62,30 @@ function playNote(frequency, filterCutOff)
 
 
   const osc1 = new OscillatorNode(ctx)
-  osc1.type = "sawtooth";
+  osc1.type = "square";
   osc1.frequency.value = frequency;
 
   const filter = new BiquadFilterNode(ctx);
   filter.type = "lowpass"
-  filter.frequency.value = frequency * filterCutOff;
+  filter.frequency.value = frequency * filterCutOff*2/3;
   filter.Q = 50
 
   const filterLFO = new OscillatorNode(ctx);
   filterLFO.type = "sine";
-  filterLFO.frequency.value = 1 
+  filterLFO.frequency.value = 2 
 
   const LFOdepth = new GainNode(ctx);
-  LFOdepth.gain.value = (frequency * filterCutOff) * 2/3
+  LFOdepth.gain.value = (frequency * filterCutOff)*2/3
 
   filterLFO.connect(LFOdepth);
   LFOdepth.connect(filter.frequency);
 
-  const dur = 0.125
+  const dur = 0.5
   const env = new GainNode(ctx)
   env.gain.value = 0;
 
   env.gain.setValueAtTime(0, t);                     // start silent
-  env.gain.linearRampToValueAtTime(1, t + dur*0.5);     // Attack
+  env.gain.linearRampToValueAtTime(1, t + dur*0.01);     // Attack
   env.gain.linearRampToValueAtTime(0.3, t + dur*0.55);    // Decay
   //env.gain.setValueAtTime(0.2, t + dur*0.9);             // Sustain
   env.gain.linearRampToValueAtTime(0, t + dur);      // Release
@@ -99,11 +101,14 @@ function playNote(frequency, filterCutOff)
   filterLFO.start(t);
   osc1.stop(t + dur);
   filterLFO.stop(t + dur);
+
+  document.getElementById('mod').addEventListener('input', function (e) {
+    filterLFO.frequency.setTargetAtTime(e.target.value, ctx.currentTime, 0.02)
+});
 };
 
-
    // 1. Define the array of choices
-        const midiPitches = [36, 38, 41, 43, 46, 24];
+        const midiPitches = [52, 54, 56, 58, 59, 61, 62, 64];
 
         // 2. Create the random picker function
         const randomPitch = function() {
@@ -114,7 +119,7 @@ function playNote(frequency, filterCutOff)
             return newFreq;
         }
 
-        const MultArray = [20, 40, 80, 160, 320]
+        const MultArray = [10, 15, 20, 30]
         const filterFreq = function()
             {
                 let filterMult = MultArray[Math.floor(Math.random() * MultArray.length)];
@@ -122,17 +127,118 @@ function playNote(frequency, filterCutOff)
 
                 return filterMult
                         }
-    
 
-document.querySelector("#trig").onclick = () => playNote(randomPitch(), filterFreq());
+  document.querySelector("#trig").onclick = () => playNote(randomPitch(), filterFreq());
+
+const master2 = new GainNode(ctx)
+master2.gain.value = 0.1;
+
+
+const delay2 = new DelayNode(ctx, { maxDelayTime: 2.5})
+
+delay2.delayTime = 0.25
+
+const feedback2 = new GainNode(ctx)
+feedback2.gain.value = 0.5;
+
+const DelFilter2 = new BiquadFilterNode(ctx)
+DelFilter2.type = "lowpass"
+DelFilter2.frequency.value = 1500;
+
+
+delay2.connect(feedback2);
+feedback2.connect(DelFilter2);
+DelFilter2.connect(delay2);
+
+
+delay2.connect(master2);
+master2.connect(ctx.destination);
+
+
+
+
+function playNote2(frequency2, filterCutOff2) 
+{
+
+  ctx.resume();
+
+  // "Now" on the audio clock. All the timings below are offsets from this.
+  const t = ctx.currentTime;
+
+
+  carrier.frequency.value = frequency2;
+
+  const mod = new OscillatorNode(ctx);
+  mod.type = "sine";
+  mod.frequency.value=frequency2*2
+
+  const modDepth = new GainNode(ctx);
+  modDepth.gain.value = frequency2*4
+
+  const filter = new BiquadFilterNode(ctx);
+  filter.type = "lowpass"
+  filter.frequency.value = 2500;
+  filter.Q = 50
+
+  const filterLFO = new OscillatorNode(ctx);
+  filterLFO.type = "sine";
+  filterLFO.frequency.value = 4 
+
+  const LFOdepth = new GainNode(ctx);
+  LFOdepth.gain.value = 800
+
+  filterLFO.connect(LFOdepth);
+  LFOdepth.connect(filter.frequency);
+
+  const dur = 0.5
+  const env = new GainNode(ctx)
+  env.gain.value = 0;
+
+  env.gain.setValueAtTime(0, t);                     // start silent
+  env.gain.linearRampToValueAtTime(1, t + dur*0.5);     // Attack
+  env.gain.linearRampToValueAtTime(0.3, t + dur*0.55);    // Decay
+  //env.gain.setValueAtTime(0.2, t + dur*0.9);             // Sustain
+  env.gain.linearRampToValueAtTime(0, t + dur);      // Release
+
+  mod.connect(modDepth);
+  modDepth.connect(carrier.frequency);
+  carrier.connect(filter);
+  filter.connect(env);
+  env.connect(master2);  // straight to the speakers (the "dry" sound)
+  env.connect(delay2);   // into the delay loop (the echoes, or "wet" sound)
+
+  // Start the tone now, and stop it just after the release has finished.
+  // A stopped node with nothing referring to it is cleaned up by the browser.
+  carrier.start(t);
+  mod.start(t);
+  filterLFO.start(t);
+  carrier.stop(t + dur);
+  mod.stop(t+dur);
+  filterLFO.stop(t + dur);
+
+
+    document.getElementById('fm').addEventListener('input', function (e) {
+    mod.frequency.setTargetAtTime((e.target.value)*frequency2, ctx.currentTime, 0.02)
+  });
+  document.getElementById('fmDepth').addEventListener('input', function (e) {
+    modDepth.gain.setTargetAtTime((e.target.value)*frequency2, ctx.currentTime, 0.02)
+  });
+
+};
+
+
+
+
+
+
+document.querySelector("#trig2").onclick = () => playNote2(263, 500)
        
 
 // Delay time slider
- const slider1 = document.querySelector("#Time");
-        slider1.addEventListener("input", () => {
-            ctx.resume();
-        delay.delayTime.value = (Number(slider1.value)**2)/10000;
-        document.querySelector("#Time").textContent = slider1.value;
+
+
+document.getElementById('Time').addEventListener('input', function (e) {
+  delay.delayTime.setTargetAtTime((e.target.value), ctx.currentTime, 0.02);
 });
 
 // Feedback slider.
@@ -140,9 +246,7 @@ document.getElementById('fb').addEventListener('input', function (e) {
   feedback.gain.setTargetAtTime((e.target.value**2)/10000, ctx.currentTime, 0.02);
 });
 
-document.getElementById('mod').addEventListener('input', function (e) {
-    filterLFO.frequency.setTargetAtTime(e.target.value**2, ctx.currentTime,)
-})
+
 </script>
 
 </body>
